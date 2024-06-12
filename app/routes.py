@@ -14,13 +14,13 @@ def index():
 @main.route('/test_db')
 def test_db():
     # Add a test order
-    new_order = Order(order_id='12345', order_time=time(12, 30, 0), district='Test District', city='Test City',
+    new_order = Order(order_id='32345', order_time=time(12, 30, 0), district='Land District', city='Land City',
                       amount=100.0, currency='USD', quantity=1)
     db.session.add(new_order)
     db.session.commit()
 
     # Query the order
-    order = Order.query.filter_by(order_id='12345').first()
+    order = Order.query.filter_by(order_id='32345').first()
 
     if order:
         return jsonify({
