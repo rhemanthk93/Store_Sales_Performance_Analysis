@@ -17,12 +17,12 @@ def load_json_data(filepath):
 
 
 def main():
-    # Define the base directory
-    basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    # Define the base directory correctly
+    basedir = os.path.abspath(os.path.dirname(__file__))
 
     # Define the file paths
-    excel_filepath = os.path.join(basedir, 'raw_data_source', 'dataset1.xlsx')
-    json_filepath = os.path.join(basedir, 'raw_data_source', 'dataset2.json')
+    excel_filepath = os.path.join(basedir, '..', 'raw_data_source', 'dataset1.xlsx')
+    json_filepath = os.path.join(basedir, '..', 'raw_data_source', 'dataset2.json')
 
     # Load data into data frames
     excel_df = load_excel_data(excel_filepath)
