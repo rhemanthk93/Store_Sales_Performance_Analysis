@@ -145,13 +145,11 @@ def main():
     # Combine the DataFrames
     combined_df = pd.concat([excel_df, json_df], ignore_index=True)
 
-    # Translate columns
-    combined_df = translate_columns(combined_df, 'SHIP_TO_DISTRICT_NAME')
-    combined_df = translate_columns(combined_df, 'SHIP_TO_CITY_CD')
-
     print(combined_df.head())
 
     write_to_database(combined_df)
+
+    print("Successfully written data")
 
 
 if __name__ == "__main__":
