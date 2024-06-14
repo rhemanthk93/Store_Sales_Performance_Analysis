@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 from app import db
-from app.models import Order
+from app.models.order import Order
 from datetime import time
 
 test = Blueprint('test', __name__)

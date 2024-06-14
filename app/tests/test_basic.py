@@ -1,6 +1,6 @@
 import unittest
 from app import create_app, db
-from app.models import Order
+from app.models.order import Order
 from datetime import time
 
 

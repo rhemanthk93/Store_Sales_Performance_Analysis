@@ -1,5 +1,4 @@
 from app import create_app, db
-from app.models import Order
 
 app = create_app()
 
