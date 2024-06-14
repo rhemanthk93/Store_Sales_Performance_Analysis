@@ -30,60 +30,55 @@ def main():
 
     # ----------------------------------------------------------------------------------------------------------------
 
-    # Rename columns for consistency
-    excel_df.rename(columns={'ORDER_TIME  (PST)': 'ORDER_TIME_PST'}, inplace=True)
-    # print(excel_df.head())
+    # Check for order ids that don't exist in the other -- Point 4
 
-    # ----------------------------------------------------------------------------------------------------------------
+    # Ensure ORDER_ID columns are of the same data type (string) and strip any whitespaces
+    excel_df['ORDER_ID'] = excel_df['ORDER_ID'].astype(str).str.strip()
+    json_df['ORDER_ID'] = json_df['ORDER_ID'].astype(str).str.strip()
 
-    # check if there any order times that are outside the given range of 5am to 12pm
+    # Extract the Order IDs
+    excel_order_ids = set(excel_df['ORDER_ID'])
+    json_order_ids = set(json_df['ORDER_ID'])
 
-    # Check and correct the length of ORDER_TIME_PST entries
-    excel_df['ORDER_TIME_PST'] = excel_df['ORDER_TIME_PST'].astype(str).str.zfill(6)
+    # Identify order IDs that are in Excel but not in JSON
+    only_in_excel = excel_order_ids - json_order_ids
 
-    # Convert ORDER_TIME columns to datetime and set invalid conversions to None
-    excel_df['ORDER_TIME_PST'] = pd.to_datetime(excel_df['ORDER_TIME_PST'], format='%H%M%S', errors='coerce').dt.time
-    json_df['ORDER_TIME_PST'] = pd.to_datetime(json_df['ORDER_TIME_PST'], format='%H%M%S', errors='coerce').dt.time
+    # Identify order IDs that are in JSON but not in Excel
+    only_in_json = json_order_ids - excel_order_ids
 
-    # Capture the rows with invalid datetime conversion
-    invalid_datetime_excel_df = excel_df[excel_df['ORDER_TIME_PST'].isna()]
-    invalid_datetime_json_df = json_df[json_df['ORDER_TIME_PST'].isna()]
+    # Identify common order IDs
+    common_order_ids = excel_order_ids & json_order_ids
 
-    # Count rows before setting NaNs
-    rows_before_setting_nan_excel = excel_df.shape[0]
-    rows_before_setting_nan_json = json_df.shape[0]
+    # Print the total number of unique order IDs in each DataFrame
+    print("\nTotal number of unique Order IDs in Excel DataFrame:", len(excel_order_ids))
+    print("\nTotal number of unique Order IDs in JSON DataFrame:", len(json_order_ids))
 
-    # Set invalid datetime conversions to None
-    excel_df['ORDER_TIME_PST'] = excel_df['ORDER_TIME_PST'].where(pd.notnull(excel_df['ORDER_TIME_PST']), None)
-    json_df['ORDER_TIME_PST'] = json_df['ORDER_TIME_PST'].where(pd.notnull(json_df['ORDER_TIME_PST']), None)
+    # Print the number of unique order IDs that are only in one DataFrame
+    print("\nNumber of Order IDs only in Excel DataFrame:", len(only_in_excel))
+    print("\nNumber of Order IDs only in JSON DataFrame:", len(only_in_json))
 
-    # Define the time range
-    start_time = pd.to_datetime("05:00:00", format='%H:%M:%S').time()
-    end_time = pd.to_datetime("12:00:00", format='%H:%M:%S').time()
+    # Print the number of common order IDs
+    print("\nNumber of common Order IDs in both DataFrames:", len(common_order_ids))
 
-    # Filter data within the specified time range
-    within_time_range_excel_df = excel_df[
-        (excel_df['ORDER_TIME_PST'] >= start_time) & (excel_df['ORDER_TIME_PST'] <= end_time)]
-    within_time_range_json_df = json_df[
-        (json_df['ORDER_TIME_PST'] >= start_time) & (json_df['ORDER_TIME_PST'] <= end_time)]
-    outside_time_range_excel_df = excel_df[
-        (excel_df['ORDER_TIME_PST'] < start_time) | (excel_df['ORDER_TIME_PST'] > end_time)]
-    outside_time_range_json_df = json_df[
-        (json_df['ORDER_TIME_PST'] < start_time) | (json_df['ORDER_TIME_PST'] > end_time)]
+    # Check for mismatches and overlaps
+    if only_in_excel:
+        print("\nOrder IDs only in Excel DataFrame detected.")
+    else:
+        print("\nNo unique Order IDs only in Excel DataFrame.")
 
-    # Count rows within and outside the time range
-    within_time_excel = within_time_range_excel_df.shape[0]
-    within_time_json = within_time_range_json_df.shape[0]
-    outside_time_excel = outside_time_range_excel_df.shape[0]
-    outside_time_json = outside_time_range_json_df.shape[0]
+    if only_in_json:
+        print("\nOrder IDs only in JSON DataFrame detected.")
+    else:
+        print("\nNo unique Order IDs only in JSON DataFrame.")
 
-    print(f"Number of rows within the time range in Excel DataFrame: {within_time_excel}")
-    print(f"Number of rows within the time range in JSON DataFrame: {within_time_json}")
-    print(f"Number of rows outside the time range in Excel DataFrame: {outside_time_excel}")
-    print(f"Number of rows outside the time range in JSON DataFrame: {outside_time_json}")
+    if common_order_ids:
+        print("\nCommon Order IDs exist between both datasets.")
+    else:
+        print("\nNo common Order IDs between the datasets.")
 
 
 if __name__ == "__main__":
     main()
 
 # Final Result
+# No common order ids in both data sets

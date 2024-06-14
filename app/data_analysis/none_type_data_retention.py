@@ -82,3 +82,4 @@ if __name__ == "__main__":
     main()
 
 # Final Result
+# None type conversion successful

@@ -36,27 +36,55 @@ def main():
 
     # ----------------------------------------------------------------------------------------------------------------
 
-    # Validate time ranges
+    # check if there any order times that are outside the given range of 5am to 12pm
 
-    # Convert the ORDER_TIME columns to datetime and ensure they are within the specified range
-    excel_df['ORDER_TIME_PST'] = pd.to_datetime(excel_df['ORDER_TIME_PST'], format='%H%M%S').dt.time
-    json_df['ORDER_TIME_PST'] = pd.to_datetime(json_df['ORDER_TIME_PST'], format='%H%M%S').dt.time
+    # Check and correct the length of ORDER_TIME_PST entries
+    excel_df['ORDER_TIME_PST'] = excel_df['ORDER_TIME_PST'].astype(str).str.zfill(6)
+
+    # Convert ORDER_TIME columns to datetime and set invalid conversions to None
+    excel_df['ORDER_TIME_PST'] = pd.to_datetime(excel_df['ORDER_TIME_PST'], format='%H%M%S', errors='coerce').dt.time
+    json_df['ORDER_TIME_PST'] = pd.to_datetime(json_df['ORDER_TIME_PST'], format='%H%M%S', errors='coerce').dt.time
+
+    # Capture the rows with invalid datetime conversion
+    invalid_datetime_excel_df = excel_df[excel_df['ORDER_TIME_PST'].isna()]
+    invalid_datetime_json_df = json_df[json_df['ORDER_TIME_PST'].isna()]
+
+    # Count rows before setting NaNs
+    rows_before_setting_nan_excel = excel_df.shape[0]
+    rows_before_setting_nan_json = json_df.shape[0]
+
+    # Set invalid datetime conversions to None
+    excel_df['ORDER_TIME_PST'] = excel_df['ORDER_TIME_PST'].where(pd.notnull(excel_df['ORDER_TIME_PST']), None)
+    json_df['ORDER_TIME_PST'] = json_df['ORDER_TIME_PST'].where(pd.notnull(json_df['ORDER_TIME_PST']), None)
 
     # Define the time range
     start_time = pd.to_datetime("05:00:00", format='%H:%M:%S').time()
     end_time = pd.to_datetime("12:00:00", format='%H:%M:%S').time()
 
     # Filter data within the specified time range
-    excel_df = excel_df[(excel_df['ORDER_TIME_PST'] >= start_time) & (excel_df['ORDER_TIME_PST'] <= end_time)]
-    json_df = json_df[(json_df['ORDER_TIME_PST'] >= start_time) & (json_df['ORDER_TIME_PST'] <= end_time)]
+    within_time_range_excel_df = excel_df[
+        (excel_df['ORDER_TIME_PST'] >= start_time) & (excel_df['ORDER_TIME_PST'] <= end_time)]
+    within_time_range_json_df = json_df[
+        (json_df['ORDER_TIME_PST'] >= start_time) & (json_df['ORDER_TIME_PST'] <= end_time)]
+    outside_time_range_excel_df = excel_df[
+        (excel_df['ORDER_TIME_PST'] < start_time) | (excel_df['ORDER_TIME_PST'] > end_time)]
+    outside_time_range_json_df = json_df[
+        (json_df['ORDER_TIME_PST'] < start_time) | (json_df['ORDER_TIME_PST'] > end_time)]
 
-    # Print the number of records within the time range
-    print("\nNumber of records in Excel DataFrame within the time range:", len(excel_df))
-    print("Number of records in JSON DataFrame within the time range:", len(json_df))
+    # Count rows within and outside the time range
+    within_time_excel = within_time_range_excel_df.shape[0]
+    within_time_json = within_time_range_json_df.shape[0]
+    outside_time_excel = outside_time_range_excel_df.shape[0]
+    outside_time_json = outside_time_range_json_df.shape[0]
+
+    print(f"Number of rows within the time range in Excel DataFrame: {within_time_excel}")
+    print(f"Number of rows within the time range in JSON DataFrame: {within_time_json}")
+    print(f"Number of rows outside the time range in Excel DataFrame: {outside_time_excel}")
+    print(f"Number of rows outside the time range in JSON DataFrame: {outside_time_json}")
 
 
 if __name__ == "__main__":
     main()
 
 # Final Result
-# all the time stamp formatting in the excel file are invalid
+# all valid order timings are within the time range specified
