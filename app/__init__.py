@@ -4,12 +4,18 @@ from app.config import Config
 
 db = SQLAlchemy()
 
+
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
+
     db.init_app(app)
 
-    from app.routes import main as main_blueprint
+    # Import and register blueprints
+    from app.routes.routes import main as main_blueprint
+    from app.routes.test_routes import test as test_blueprint
+
     app.register_blueprint(main_blueprint)
+    app.register_blueprint(test_blueprint, url_prefix='/test')
 
     return app
