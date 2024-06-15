@@ -1,8 +1,6 @@
-# app/database_queries/insights.py
 from sqlalchemy import text
 from app import db
 from app.utilities.currency_conversion import CurrencyConversion
-from decimal import Decimal
 
 
 def fetch_and_convert_sales_data():
