@@ -1,8 +1,8 @@
 import pandas as pd
 import os
-import time
 from app import create_app, db
 from app.models.order import Order
+from app.utilities.translate import translate
 
 
 def process_excel_data():
@@ -94,28 +94,6 @@ def process_json_data():
     return json_df
 
 
-def translate_columns(df, column_name):
-    translator = Translator()
-
-    def translate_text(text):
-        sleep_time = 1  # Start with a 1-second sleep time
-        while True:
-            try:
-                if pd.notnull(text):
-                    translated_text = translator.translate(text).text
-                    print(f"{text} successfully translated to {translated_text}")
-                    return translated_text
-                return text
-            except Exception as e:
-                print(f"Error translating text: {text}, Error: {e}")
-                print(f"Retrying in {sleep_time} seconds...")
-                time.sleep(sleep_time)
-                sleep_time += 5  # Increase sleep time by 5 seconds after each failure
-
-    df[column_name] = df[column_name].apply(translate_text)
-    return df
-
-
 def write_to_database(df):
     app = create_app()
     with app.app_context():
@@ -145,7 +123,9 @@ def main():
     # Combine the DataFrames
     combined_df = pd.concat([excel_df, json_df], ignore_index=True)
 
-    print(combined_df.head())
+    # Translate the columns
+    combined_df = translate(combined_df, 'SHIP_TO_CITY_CD', src='zh-cn', dest='en')
+    combined_df = translate(combined_df, 'SHIP_TO_DISTRICT_NAME', src='zh-cn', dest='en')
 
     write_to_database(combined_df)
 
