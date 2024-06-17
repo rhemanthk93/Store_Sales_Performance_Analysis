@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from app.database_queries.sales_insights import get_city_with_highest_per_hour_sales, get_city_with_highest_avg_sales, \
+from app.database_queries.sales_insights import get_city_with_highest_per_hour_sales, get_city_with_highest_avg_sales_by_district, \
     get_time_based_sales_trend, get_top_sales_by_region
 from app.database_queries.order_insights import get_time_based_order_trend, get_top_orders_by_region
 from app.database_queries.tier_based_insights import create_sales_tiers, create_order_frequency_tiers, \
@@ -17,10 +17,10 @@ def highest_per_hour_sales_by_city():
         return jsonify({"error": str(e)}), 500
 
 
-@main.route('/highest_avg_sales_by_city', methods=['GET'])
+@main.route('/city_highest_avg_sales_by_district', methods=['GET'])
 def highest_avg_sales_by_city():
     try:
-        result = get_city_with_highest_avg_sales()
+        result = get_city_with_highest_avg_sales_by_district()
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

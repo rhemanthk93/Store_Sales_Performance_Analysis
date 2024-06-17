@@ -3,7 +3,7 @@ from app import db
 from app.utilities.currency_conversion import CurrencyConversion
 
 
-def fetch_and_convert_sales_data():
+def fetch_and_convert_sales_data_by_city():
     conversion = CurrencyConversion()
 
     raw_sql = text('''
@@ -32,7 +32,7 @@ def fetch_and_convert_sales_data():
 
 
 def get_city_with_highest_per_hour_sales():
-    city_sales = fetch_and_convert_sales_data()
+    city_sales = fetch_and_convert_sales_data_by_city()
 
     highest_per_hour_sales = []
     for city, sales in city_sales.items():
@@ -50,8 +50,38 @@ def get_city_with_highest_per_hour_sales():
     return highest_per_hour_sales
 
 
-def get_city_with_highest_avg_sales():
-    city_sales = fetch_and_convert_sales_data()
+def fetch_and_convert_sales_data_by_city_and_district():
+    conversion = CurrencyConversion()
+
+    raw_sql = text('''
+        SELECT ship_to_city_cd, ship_to_district_name, rptg_amt, currency_cd
+        FROM `order`
+    ''')
+    results = db.session.execute(raw_sql).fetchall()
+
+    city_sales = {}
+    for result in results:
+        city = result[0]
+        district = result[1]
+        amount_usd = conversion.convert_to_usd(result[2], result[3])
+        amount_rmb = conversion.convert_to_rmb(result[2], result[3])
+
+        if amount_usd is None or amount_rmb is None:
+            continue
+
+        if city not in city_sales:
+            city_sales[city] = {'usd': [], 'rmb': [], 'districts': set(), 'hours': 0}
+
+        city_sales[city]['usd'].append(amount_usd)
+        city_sales[city]['rmb'].append(amount_rmb)
+        city_sales[city]['districts'].add(district)
+        city_sales[city]['hours'] += 1
+
+    return city_sales
+
+
+def get_city_with_highest_avg_sales_by_district():
+    city_sales = fetch_and_convert_sales_data_by_city_and_district()
 
     highest_avg_sales = []
     for city, sales in city_sales.items():
@@ -59,6 +89,7 @@ def get_city_with_highest_avg_sales():
         avg_sales_rmb = sum(sales['rmb']) / len(sales['rmb'])
         highest_avg_sales.append({
             'city': city,
+            'districts': list(sales['districts']),
             'avg_sales_usd': float(avg_sales_usd),
             'avg_sales_rmb': float(avg_sales_rmb)
         })

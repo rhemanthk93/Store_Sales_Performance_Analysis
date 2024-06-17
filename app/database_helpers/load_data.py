@@ -131,6 +131,7 @@ def main():
 
     print("Successfully written data")
 
+ # print out how many lines were read and how many were written
 
 if __name__ == "__main__":
     main()
