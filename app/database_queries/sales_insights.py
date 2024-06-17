@@ -31,23 +31,23 @@ def fetch_and_convert_sales_data_by_city():
     return city_sales
 
 
-def get_city_with_highest_per_hour_sales():
+def get_city_with_per_hour_sales():
     city_sales = fetch_and_convert_sales_data_by_city()
 
-    highest_per_hour_sales = []
+    per_hour_sales = []
     for city, sales in city_sales.items():
         total_sales_usd = sum(sales['usd'])
         total_sales_rmb = sum(sales['rmb'])
         avg_hourly_sales_usd = total_sales_usd / sales['hours']
         avg_hourly_sales_rmb = total_sales_rmb / sales['hours']
-        highest_per_hour_sales.append({
+        per_hour_sales.append({
             'city': city,
             'avg_hourly_sales_usd': float(avg_hourly_sales_usd),
             'avg_hourly_sales_rmb': float(avg_hourly_sales_rmb)
         })
 
-    highest_per_hour_sales.sort(key=lambda x: x['avg_hourly_sales_usd'], reverse=True)
-    return highest_per_hour_sales
+    per_hour_sales.sort(key=lambda x: x['avg_hourly_sales_usd'], reverse=True)
+    return per_hour_sales
 
 
 def fetch_and_convert_sales_data_by_city_and_district():
@@ -80,22 +80,22 @@ def fetch_and_convert_sales_data_by_city_and_district():
     return city_sales
 
 
-def get_city_with_highest_avg_sales_by_district():
+def get_city_with_avg_sales_with_district_info():
     city_sales = fetch_and_convert_sales_data_by_city_and_district()
 
-    highest_avg_sales = []
+    avg_sales = []
     for city, sales in city_sales.items():
         avg_sales_usd = sum(sales['usd']) / len(sales['usd'])
         avg_sales_rmb = sum(sales['rmb']) / len(sales['rmb'])
-        highest_avg_sales.append({
+        avg_sales.append({
             'city': city,
             'districts': list(sales['districts']),
             'avg_sales_usd': float(avg_sales_usd),
             'avg_sales_rmb': float(avg_sales_rmb)
         })
 
-    highest_avg_sales.sort(key=lambda x: x['avg_sales_usd'], reverse=True)
-    return highest_avg_sales
+    avg_sales.sort(key=lambda x: x['avg_sales_usd'], reverse=True)
+    return avg_sales
 
 
 def fetch_and_convert_time_based_sales_data():
