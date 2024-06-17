@@ -1,6 +1,6 @@
 from app import db
 
-class Order(db.Model):
+class Order_v2(db.Model):
     order_id = db.Column(db.String(255), primary_key=True, unique=True, nullable=False)
     order_time_pst = db.Column(db.Time, nullable=True)
     order_date = db.Column(db.Date, nullable=True)
