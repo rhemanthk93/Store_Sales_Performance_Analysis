@@ -4,7 +4,9 @@ from app.utilities.currency_conversion import CurrencyConversion
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
+from kneed import KneeLocator
 import json
+import matplotlib.pyplot as plt
 
 
 def fetch_and_convert_sales_data():
@@ -32,47 +34,27 @@ def fetch_and_convert_sales_data():
 
 
 def determine_optimal_tiers(city_sales):
-    # Check if city_sales is a dictionary or DataFrame
+    # Plot to see the distribution
+    # inspect_sales_distribution(city_sales)
     if isinstance(city_sales, dict):
-        # Convert city_sales to a DataFrame (assuming it's a dictionary)
         df = pd.DataFrame.from_dict(city_sales, orient='index', columns=['Total Sales'])
-        sales_values = df['Total Sales'].tolist()  # Extract sales column as a list
-
+        sales_values = df['Total Sales'].astype(float).tolist()
     elif isinstance(city_sales, pd.DataFrame):
-        # Assuming city_sales is a DataFrame with a column "Total Sales"
-        sales_values = city_sales['Total Sales']  # Extract the sales column directly
-
+        sales_values = city_sales['Total Sales'].astype(float)
     else:
         raise ValueError("city_sales must be a dictionary or a pandas DataFrame.")
 
-    # Create a list to store inertia values for different k values
+    sales_values_array = np.log1p(np.array(sales_values).reshape(-1, 1))
+
     inertias = []
-
-    # Range of k values to test (adjust as needed)
     for k in range(1, 11):
-        # Create a KMeans instance with k clusters
         kmeans = KMeans(n_clusters=k, random_state=0)
-
-        # Reshape sales_values to a 2D NumPy array (required by KMeans.fit)
-        sales_values_array = np.array(sales_values).reshape(-1, 1)
-
-        # Fit KMeans to the reshaped data
         kmeans.fit(sales_values_array)
-
-        # Append the inertia (sum of squared distances to cluster centers)
         inertias.append(kmeans.inertia_)
 
-    # Identify the elbow point (where the inertia starts to plateau)
+    kl = KneeLocator(range(1, 11), inertias, curve="convex", direction="decreasing")
+    optimal_k = kl.elbow if kl.elbow else 3
 
-    lowest_change = float('inf')
-    optimal_k = 1
-    for i in range(1, len(inertias)):
-        change = inertias[i - 1] - inertias[i]
-        if change < lowest_change:
-            lowest_change = change
-            optimal_k = i + 1
-
-    # Return the optimal number of tiers
     return optimal_k
 
 
@@ -80,36 +62,94 @@ def create_sales_tiers():
     city_sales = fetch_and_convert_sales_data()
     optimal_k = determine_optimal_tiers(city_sales)
 
-    # Check if city_sales is a dictionary or DataFrame
-    if not isinstance(city_sales, (dict, pd.DataFrame)):
-        raise ValueError("city_sales must be a dictionary or a pandas DataFrame.")
-
-    # Extract sales values
     if isinstance(city_sales, dict):
         df = pd.DataFrame.from_dict(city_sales, orient='index', columns=['Total Sales'])
-        sales_values = df['Total Sales'].tolist()
+        sales_values = df['Total Sales'].astype(float).tolist()
     elif isinstance(city_sales, pd.DataFrame):
-        sales_values = city_sales['Total Sales']
+        sales_values = city_sales['Total Sales'].astype(float)
     else:
-        raise ValueError("Unexpected data type for city_sales.")  # More specific error
+        raise ValueError("Unexpected data type for city_sales.")
 
-    # Reshape sales_values to a 2D NumPy array (required by KMeans.fit)
-    sales_values_array = np.array(sales_values).reshape(-1, 1)
+    sales_values_array = np.log1p(np.array(sales_values).reshape(-1, 1))
 
-    # Create a KMeans instance with the optimal k
     kmeans = KMeans(n_clusters=optimal_k, random_state=0)
-
-    # Fit KMeans to the reshaped data
     kmeans.fit(sales_values_array)
-
-    # Assign cluster labels (tier labels) to each city
     tier_labels = kmeans.labels_
 
-    # Create a DataFrame with city names and tier labels
-    df_tiers = pd.DataFrame({'City': city_sales.keys(), 'Tier': tier_labels})
-    df_tiers.set_index('City', inplace=True)  # Set 'City' as the index
-
-    # Convert DataFrame to JSON format with city names as keys
-    json_data = df_tiers.to_dict(orient='index')  # Convert to dictionary with city names as keys
+    df_tiers = pd.DataFrame({'City': list(city_sales.keys()), 'Tier': tier_labels})
+    df_tiers.set_index('City', inplace=True)
+    json_data = df_tiers.to_dict(orient='index')
 
     return json.dumps(json_data)
+
+
+def inspect_sales_distribution(city_sales):
+    sales_values = list(city_sales.values())
+    plt.hist(sales_values, bins=50)
+    plt.xlabel('Total Sales (USD)')
+    plt.ylabel('Number of Cities')
+    plt.title('Sales Distribution Across Cities')
+    plt.show()
+
+
+def fetch_and_convert_order_timing_data():
+    raw_sql = text('''
+        SELECT ship_to_city_cd, EXTRACT(HOUR FROM order_time_pst) as order_hour, order_qty
+        FROM `order`
+    ''')
+    results = db.session.execute(raw_sql).fetchall()
+
+    order_timing_data = []
+    for result in results:
+        city = result[0]
+        order_hour = result[1]
+        order_qty = result[2]
+
+        if order_hour is None or order_qty is None:
+            continue
+
+        order_timing_data.append({
+            'city': city,
+            'order_hour': order_hour,
+            'order_qty': order_qty
+        })
+
+    return pd.DataFrame(order_timing_data)
+
+
+def determine_optimal_clusters(order_data):
+    order_agg = order_data.groupby(['city', 'order_hour']).agg({
+        'order_qty': 'sum'
+    }).reset_index()
+
+    # Normalize the data
+    order_agg_normalized = (order_agg[['order_hour', 'order_qty']] - order_agg[['order_hour', 'order_qty']].mean()) / \
+                           order_agg[['order_hour', 'order_qty']].std()
+
+    inertias = []
+    for k in range(1, 11):
+        kmeans = KMeans(n_clusters=k, random_state=0)
+        kmeans.fit(order_agg_normalized)
+        inertias.append(kmeans.inertia_)
+
+    kl = KneeLocator(range(1, 11), inertias, curve="convex", direction="decreasing")
+    optimal_k = kl.elbow if kl.elbow else 3
+
+    return optimal_k
+
+
+def create_order_timing_clustering():
+    order_data = fetch_and_convert_order_timing_data()
+    optimal_k = determine_optimal_clusters(order_data)
+
+    order_agg = order_data.groupby(['city', 'order_hour']).agg({
+        'order_qty': 'sum'
+    }).reset_index()
+
+    order_agg_normalized = (order_agg[['order_hour', 'order_qty']] - order_agg[['order_hour', 'order_qty']].mean()) / \
+                           order_agg[['order_hour', 'order_qty']].std()
+
+    kmeans = KMeans(n_clusters=optimal_k, random_state=0)
+    order_agg['cluster'] = kmeans.fit_predict(order_agg_normalized)
+
+    return order_agg

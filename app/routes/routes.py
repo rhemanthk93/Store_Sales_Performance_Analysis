@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify
 from app.database_queries.sales_insights import get_city_with_per_hour_sales, \
     get_city_with_avg_sales_with_district_info, \
     get_time_based_sales_trend_by_city
-from app.database_queries.tier_based_insights import create_sales_tiers
+from app.database_queries.tier_based_insights import create_sales_tiers, create_order_timing_clustering
 from app.database_queries.order_insights import get_time_based_order_trend_by_city, get_orders_by_region
 
 main = Blueprint('main', __name__)
@@ -34,6 +34,7 @@ def time_based_sales_trend_by_city():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @main.route('/time_based_order_trend_by_city', methods=['GET'])
 def time_based_order_trend_by_city():
     try:
@@ -41,6 +42,7 @@ def time_based_order_trend_by_city():
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @main.route('/orders_by_region', methods=['GET'])
 def orders_by_region():
@@ -55,6 +57,15 @@ def orders_by_region():
 def get_sales_tiers():
     try:
         result = create_sales_tiers()
-        return result
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@main.route('/order_timing_tiers', methods=['GET'])
+def get_order_timing_clusters():
+    try:
+        result = create_order_timing_clustering()
+        return jsonify(result.to_dict(orient='records'))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
