@@ -98,7 +98,7 @@ def get_city_with_avg_sales_with_district_info():
     return avg_sales
 
 
-def fetch_and_convert_time_based_sales_data():
+def fetch_and_convert_time_based_sales_data_by_city():
     conversion = CurrencyConversion()
 
     raw_sql = text('''
@@ -130,8 +130,8 @@ def fetch_and_convert_time_based_sales_data():
     return time_based_sales
 
 
-def get_time_based_sales_trend():
-    time_based_sales = fetch_and_convert_time_based_sales_data()
+def get_time_based_sales_trend_by_city():
+    time_based_sales = fetch_and_convert_time_based_sales_data_by_city()
 
     time_based_sales_trend = []
     for city, sales in time_based_sales.items():
