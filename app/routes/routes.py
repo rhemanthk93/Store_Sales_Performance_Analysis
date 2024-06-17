@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify
 from app.database_queries.sales_insights import get_city_with_per_hour_sales, get_city_with_avg_sales_with_district_info, \
     get_time_based_sales_trend_by_city
+from app.database_queries.tier_based_insights import create_sales_tiers
 
 main = Blueprint('main', __name__)
 
@@ -28,5 +29,14 @@ def time_based_sales_trend_by_city():
     try:
         result = get_time_based_sales_trend_by_city()
         return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@main.route('/sales_tiers', methods=['GET'])
+def get_sales_tiers():
+    try:
+        result = create_sales_tiers()
+        return result
     except Exception as e:
         return jsonify({"error": str(e)}), 500

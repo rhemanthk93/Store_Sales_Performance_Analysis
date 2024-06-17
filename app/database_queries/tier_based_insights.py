@@ -1,8 +1,10 @@
 from sqlalchemy import text
 from app import db
 from app.utilities.currency_conversion import CurrencyConversion
+import numpy as np
 import pandas as pd
-from sklearn.preprocessing import KBinsDiscretizer
+from sklearn.cluster import KMeans
+import json
 
 
 def fetch_and_convert_sales_data():
@@ -29,145 +31,85 @@ def fetch_and_convert_sales_data():
     return city_sales
 
 
+def determine_optimal_tiers(city_sales):
+    # Check if city_sales is a dictionary or DataFrame
+    if isinstance(city_sales, dict):
+        # Convert city_sales to a DataFrame (assuming it's a dictionary)
+        df = pd.DataFrame.from_dict(city_sales, orient='index', columns=['Total Sales'])
+        sales_values = df['Total Sales'].tolist()  # Extract sales column as a list
+
+    elif isinstance(city_sales, pd.DataFrame):
+        # Assuming city_sales is a DataFrame with a column "Total Sales"
+        sales_values = city_sales['Total Sales']  # Extract the sales column directly
+
+    else:
+        raise ValueError("city_sales must be a dictionary or a pandas DataFrame.")
+
+    # Create a list to store inertia values for different k values
+    inertias = []
+
+    # Range of k values to test (adjust as needed)
+    for k in range(1, 11):
+        # Create a KMeans instance with k clusters
+        kmeans = KMeans(n_clusters=k, random_state=0)
+
+        # Reshape sales_values to a 2D NumPy array (required by KMeans.fit)
+        sales_values_array = np.array(sales_values).reshape(-1, 1)
+
+        # Fit KMeans to the reshaped data
+        kmeans.fit(sales_values_array)
+
+        # Append the inertia (sum of squared distances to cluster centers)
+        inertias.append(kmeans.inertia_)
+
+    # Identify the elbow point (where the inertia starts to plateau)
+
+    lowest_change = float('inf')
+    optimal_k = 1
+    for i in range(1, len(inertias)):
+        change = inertias[i - 1] - inertias[i]
+        if change < lowest_change:
+            lowest_change = change
+            optimal_k = i + 1
+
+    # Return the optimal number of tiers
+    return optimal_k
+
+
 def create_sales_tiers():
     city_sales = fetch_and_convert_sales_data()
+    optimal_k = determine_optimal_tiers(city_sales)
 
-    # Convert to DataFrame
-    df = pd.DataFrame(list(city_sales.items()), columns=['City', 'Total Sales'])
+    # Check if city_sales is a dictionary or DataFrame
+    if not isinstance(city_sales, (dict, pd.DataFrame)):
+        raise ValueError("city_sales must be a dictionary or a pandas DataFrame.")
 
-    # Apply Binning
-    est = KBinsDiscretizer(n_bins=3, encode='ordinal', strategy='quantile')
-    df['Tier'] = est.fit_transform(df[['Total Sales']])
+    # Extract sales values
+    if isinstance(city_sales, dict):
+        df = pd.DataFrame.from_dict(city_sales, orient='index', columns=['Total Sales'])
+        sales_values = df['Total Sales'].tolist()
+    elif isinstance(city_sales, pd.DataFrame):
+        sales_values = city_sales['Total Sales']
+    else:
+        raise ValueError("Unexpected data type for city_sales.")  # More specific error
 
-    # Map bins to tier names
-    tier_mapping = {0: 'Low Spending', 1: 'Medium Spending', 2: 'High Spending'}
-    df['Tier'] = df['Tier'].map(tier_mapping)
+    # Reshape sales_values to a 2D NumPy array (required by KMeans.fit)
+    sales_values_array = np.array(sales_values).reshape(-1, 1)
 
-    # Convert DataFrame to JSON
-    tiers_json = df.to_json(orient='records')
+    # Create a KMeans instance with the optimal k
+    kmeans = KMeans(n_clusters=optimal_k, random_state=0)
 
-    return tiers_json
+    # Fit KMeans to the reshaped data
+    kmeans.fit(sales_values_array)
 
+    # Assign cluster labels (tier labels) to each city
+    tier_labels = kmeans.labels_
 
-def fetch_order_frequency_data():
-    raw_sql = text('''
-        SELECT ship_to_city_cd, COUNT(order_id) as order_count
-        FROM `order`
-        GROUP BY ship_to_city_cd
-    ''')
-    results = db.session.execute(raw_sql).fetchall()
+    # Create a DataFrame with city names and tier labels
+    df_tiers = pd.DataFrame({'City': city_sales.keys(), 'Tier': tier_labels})
+    df_tiers.set_index('City', inplace=True)  # Set 'City' as the index
 
-    city_orders = {result[0]: result[1] for result in results}
-    return city_orders
+    # Convert DataFrame to JSON format with city names as keys
+    json_data = df_tiers.to_dict(orient='index')  # Convert to dictionary with city names as keys
 
-
-def create_order_frequency_tiers():
-    city_orders = fetch_order_frequency_data()
-
-    # Convert the city orders dictionary to a DataFrame
-    df = pd.DataFrame(list(city_orders.items()), columns=['City', 'Order Count'])
-
-    # Apply Binning using KBinsDiscretizer
-    est = KBinsDiscretizer(n_bins=3, encode='ordinal', strategy='quantile')
-    df['Tier'] = est.fit_transform(df[['Order Count']])
-
-    # Map the numeric bins to descriptive tier names
-    tier_mapping = {0: 'Low Order Frequency', 1: 'Medium Order Frequency', 2: 'High Order Frequency'}
-    df['Tier'] = df['Tier'].map(tier_mapping)
-
-    # Convert the DataFrame to JSON
-    tiers_json = df.to_json(orient='records')
-
-    return tiers_json
-
-
-def fetch_transaction_currency_data():
-    raw_sql = text('''
-        SELECT ship_to_city_cd, currency_cd, COUNT(order_id) as transaction_count
-        FROM `order`
-        GROUP BY ship_to_city_cd, currency_cd
-    ''')
-    results = db.session.execute(raw_sql).fetchall()
-
-    city_currency_data = {}
-    for result in results:
-        city = result[0]
-        currency = result[1]
-        count = result[2]
-
-        if city not in city_currency_data:
-            city_currency_data[city] = {'USD': 0, 'RMB': 0}
-
-        city_currency_data[city][currency] = count
-
-    return city_currency_data
-
-
-def create_currency_based_tiers():
-    city_currency_data = fetch_transaction_currency_data()
-
-    # Convert the city currency data dictionary to a DataFrame
-    df = pd.DataFrame.from_dict(city_currency_data, orient='index').reset_index()
-    df.columns = ['City', 'USD Transactions', 'RMB Transactions']
-
-    # Determine dominant currency for each city
-    def determine_tier(row):
-        if row['USD Transactions'] > row['RMB Transactions']:
-            return 'USD Dominant'
-        elif row['RMB Transactions'] > row['USD Transactions']:
-            return 'RMB Dominant'
-        else:
-            return 'Mixed Currency'
-
-    df['Tier'] = df.apply(determine_tier, axis=1)
-
-    # Convert the DataFrame to JSON
-    tiers_json = df.to_json(orient='records')
-
-    return tiers_json
-
-
-def fetch_peak_hour_data():
-    conversion = CurrencyConversion()
-
-    raw_sql = text('''
-        SELECT ship_to_city_cd, EXTRACT(HOUR FROM order_time_pst) as hour, rptg_amt, currency_cd
-        FROM `order`
-    ''')
-    results = db.session.execute(raw_sql).fetchall()
-
-    peak_hour_data = []
-    for result in results:
-        city = result[0]
-        hour = result[1]
-        amount_usd = conversion.convert_to_usd(result[2], result[3])
-        if amount_usd is not None:
-            peak_hour_data.append({'city': city, 'hour': hour, 'total_sales_usd': float(amount_usd)})
-
-    return peak_hour_data
-
-
-def create_peak_hour_tiers():
-    peak_hour_data = fetch_peak_hour_data()
-
-    df = pd.DataFrame(peak_hour_data)
-
-    # Identify peak hours (e.g., 8-10 AM)
-    df['Peak'] = df['hour'].apply(lambda x: 'Peak' if 8 <= x <= 10 else 'Off-Peak')
-
-    peak_sales = df[df['Peak'] == 'Peak'].groupby('city')['total_sales_usd'].sum().reset_index()
-    off_peak_sales = df[df['Peak'] == 'Off-Peak'].groupby('city')['total_sales_usd'].sum().reset_index()
-
-    peak_sales['Peak_Sales'] = peak_sales['total_sales_usd']
-    off_peak_sales['Off_Peak_Sales'] = off_peak_sales['total_sales_usd']
-
-    combined_sales = pd.merge(peak_sales[['city', 'Peak_Sales']], off_peak_sales[['city', 'Off_Peak_Sales']], on='city',
-                              how='outer').fillna(0)
-
-    combined_sales['Total_Sales'] = combined_sales['Peak_Sales'] + combined_sales['Off_Peak_Sales']
-    combined_sales['Tier'] = combined_sales.apply(
-        lambda x: 'Peak Hour Cities' if x['Peak_Sales'] > x['Off_Peak_Sales'] else 'Off-Peak Hour Cities', axis=1)
-
-    tiers_json = combined_sales.to_json(orient='records')
-
-    return tiers_json
+    return json.dumps(json_data)
