@@ -2,7 +2,7 @@ from sqlalchemy import text
 from app import db
 
 
-def fetch_time_based_order_data():
+def fetch_time_based_order_data_by_city():
     raw_sql = text('''
         SELECT ship_to_city_cd, HOUR(order_time_pst) AS hour, COUNT(*) as order_count
         FROM `order`
@@ -25,8 +25,8 @@ def fetch_time_based_order_data():
     return time_based_orders
 
 
-def get_time_based_order_trend():
-    time_based_orders = fetch_time_based_order_data()
+def get_time_based_order_trend_by_city():
+    time_based_orders = fetch_time_based_order_data_by_city()
 
     time_based_order_trend = []
     for city, orders in time_based_orders.items():
@@ -58,15 +58,15 @@ def fetch_order_data_by_region():
     return region_orders
 
 
-def get_top_orders_by_region():
+def get_orders_by_region():
     region_orders = fetch_order_data_by_region()
 
-    top_orders_by_region = []
+    orders_by_region = []
     for region, order_count in region_orders.items():
-        top_orders_by_region.append({
+        orders_by_region.append({
             'region': region,
             'order_count': order_count
         })
 
-    top_orders_by_region.sort(key=lambda x: x['order_count'], reverse=True)
-    return top_orders_by_region
+    orders_by_region.sort(key=lambda x: x['order_count'], reverse=True)
+    return orders_by_region
