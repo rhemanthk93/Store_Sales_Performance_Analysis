@@ -22,11 +22,10 @@ def fetch_and_convert_sales_data_by_city():
             continue
 
         if city not in city_sales:
-            city_sales[city] = {'usd': [], 'rmb': [], 'hours': 0}
+            city_sales[city] = {'usd': 0, 'rmb': 0}
 
-        city_sales[city]['usd'].append(amount_usd)
-        city_sales[city]['rmb'].append(amount_rmb)
-        city_sales[city]['hours'] += 1
+        city_sales[city]['usd'] += amount_usd
+        city_sales[city]['rmb'] += amount_rmb
 
     return city_sales
 
@@ -35,11 +34,11 @@ def get_city_with_per_hour_sales():
     city_sales = fetch_and_convert_sales_data_by_city()
 
     per_hour_sales = []
+    hours = 8  # from 5 AM to 12 PM
+
     for city, sales in city_sales.items():
-        total_sales_usd = sum(sales['usd'])
-        total_sales_rmb = sum(sales['rmb'])
-        avg_hourly_sales_usd = total_sales_usd / sales['hours']
-        avg_hourly_sales_rmb = total_sales_rmb / sales['hours']
+        avg_hourly_sales_usd = sales['usd'] / hours
+        avg_hourly_sales_rmb = sales['rmb'] / hours
         per_hour_sales.append({
             'city': city,
             'avg_hourly_sales_usd': float(avg_hourly_sales_usd),
